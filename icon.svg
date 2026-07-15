@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e" />
+      <stop offset="100%" stop-color="#16213e" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" ry="96" fill="url(#bg)" />
+  <g fill="none" stroke="#00d4aa" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 96 v224" />
+    <path d="M256 96 l-96 64" />
+    <path d="M256 96 l96 64" />
+    <path d="M256 320 l-112 64" />
+    <path d="M256 320 l112 64" />
+    <circle cx="256" cy="320" r="24" />
+    <circle cx="160" cy="160" r="24" />
+    <circle cx="352" cy="160" r="24" />
+    <circle cx="160" cy="384" r="24" />
+    <circle cx="352" cy="384" r="24" />
+  </g>
+  <text x="256" y="440" text-anchor="middle" font-family="sans-serif" font-size="44" fill="#00d4aa">RO</text>
+</svg>

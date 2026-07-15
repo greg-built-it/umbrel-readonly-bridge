@@ -1,0 +1,28 @@
+manifestVersion: 1
+id: greg-umbrel-readonly-bridge
+name: "Umbrel Read-Only Bridge"
+tagline: "Read-only MCP filesystem bridge for Umbrel"
+icon: "https://raw.githubusercontent.com/greg-built-it/greg-umbrel-app-store/main/greg-umbrel-readonly-bridge/icon.svg"
+category: "developer tools"
+version: "1.0.3"
+port: 8080
+path: "/health"
+description: >-
+  Provides a read-only MCP (Model Context Protocol) bridge into the Umbrel
+  filesystem. Access is constrained to /host/umbrel, the container runs as
+  root but is heavily sandboxed: read-only rootfs, ALL capabilities dropped
+  except DAC_READ_SEARCH, no new privileges, no Docker socket, no published
+  host ports and no build step. The bearer token is generated once by an
+  init service and stored in an app-data secret file, never committed to
+  the repository or baked into the image.
+developer: "Greg"
+website: "https://github.com/greg-built-it/umbrel-readonly-bridge"
+dependencies: []
+repo: "https://github.com/greg-built-it/umbrel-readonly-bridge"
+support: "https://github.com/greg-built-it/umbrel-readonly-bridge/issues"
+
+# Umbrel app proxy settings
+submitter: Greg
+submissionNotes: "Private community app for Hermes read-only access."
+
+releaseNotes: "Fix MCP SSE transport compatibility."

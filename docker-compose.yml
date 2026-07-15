@@ -1,0 +1,94 @@
+services:
+  init-token:
+    image: ghcr.io/greg-built-it/umbrel-readonly-bridge:1.0.3@sha256:BRIDGE_DIGEST_PLACEHOLDER
+    user: "0:0"
+    entrypoint: ["/app/scripts/init-token.sh"]
+    command: []
+    volumes:
+      - "${APP_DATA_DIR}/data:/data:rw"
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    restart: "no"
+
+  app:
+    image: ghcr.io/greg-built-it/umbrel-readonly-bridge:1.0.3@sha256:BRIDGE_DIGEST_PLACEHOLDER
+    restart: unless-stopped
+    user: "0:0"
+    environment:
+      BRIDGE_HOST: "0.0.0.0"
+      BRIDGE_PORT: "8080"
+      BRIDGE_MODE: "standard"
+      PROXY_SOCKET: "/run/proxy/docker-proxy.sock"
+    volumes:
+      - "${UMBREL_ROOT}:/host/umbrel:ro,rslave"
+      - "${APP_DATA_DIR}/data/bridge-token:/run/secrets/bridge-token:ro"
+      - "bridge_proxy_socket:/run/proxy:ro"
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_READ_SEARCH
+    security_opt:
+      - "no-new-privileges:true"
+    networks:
+      default:
+      umbrel_main_network:
+        aliases:
+          - umbrel-ro-bridge
+    depends_on:
+      init-token:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  app_proxy:
+    environment:
+      APP_HOST: greg-umbrel-readonly-bridge_app_1
+      APP_PORT: 8080
+      PROXY_AUTH_ADD: "false"
+
+  openclaw-docker-proxy:
+    image: ghcr.io/greg-built-it/umbrel-openclaw-docker-proxy:1.0.3@sha256:PLACEHOLDER_DIGEST
+    restart: unless-stopped
+    user: "0:0"
+    network_mode: none
+    environment:
+      PROXY_SOCKET: "/run/proxy/docker-proxy.sock"
+      DOCKER_API_VERSION: "v1.47"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+      - "bridge_proxy_socket:/run/proxy:rw"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges:true"
+    healthcheck:
+      test: ["CMD", "python", "-m", "openclaw_docker_proxy.healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    tmpfs:
+      - /tmp:noexec,nosuid,size=10m
+
+networks:
+  umbrel_main_network:
+    external: true
+    name: umbrel_main_network
+
+volumes:
+  bridge_proxy_socket:
+    name: greg-umbrel-readonly-bridge_proxy_socket
+    driver: local
