@@ -1,0 +1,6 @@
+mcp==1.21.0
+uvicorn[standard]==0.34.2
+starlette==0.46.2
+httpx==0.28.1
+python-magic==0.4.27
+PyPDF2==3.0.1
