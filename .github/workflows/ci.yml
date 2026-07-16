@@ -34,8 +34,32 @@ jobs:
           uv sync --extra dev
           uv run pytest tests/ -v
 
-  build-and-push:
+  e2e:
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Bridge
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: bridge
+
+      - name: Checkout Proxy 1.0.4 source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: greg-built-it/umbrel-openclaw-docker-proxy
+          ref: 2fcd501cba1e399198ebe37a83f1b4e9269f80e6
+          path: proxy
+
+      - name: Build images and run Docker E2E
+        run: |
+          bridge/tests/e2e/run_image_e2e.sh "$GITHUB_WORKSPACE/bridge" "$GITHUB_WORKSPACE/proxy"
+
+      - name: Verify E2E regression detection
+        run: |
+          bridge/tests/e2e/assert_regressions_detected.sh "$GITHUB_WORKSPACE/bridge" "$GITHUB_WORKSPACE/proxy"
+
+  build-and-push:
+    needs: [test, e2e]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:

@@ -73,3 +73,46 @@ async def test_container_logs_tail_validation_like():
     result = await openclaw_client.container_logs("gateway", tail=100)
     assert result["ok"] is False  # proxy unavailable in test env
     assert result["error"] in {"proxy_unavailable", "docker_unavailable"}
+
+
+@pytest.mark.asyncio
+async def test_container_status_posts_proxy_schema():
+    with patch(
+        "umbrel_ro_bridge.openclaw_client._safe_request",
+        new_callable=AsyncMock,
+        return_value={"ok": True, "data": {"ok": True}},
+    ) as request:
+        result = await openclaw_client.container_status("gateway")
+
+    assert result["ok"] is True
+    request.assert_awaited_once_with(
+        "POST", "/v1/container_status", {"container": "gateway"}
+    )
+
+
+@pytest.mark.asyncio
+async def test_container_logs_posts_proxy_schema():
+    with patch(
+        "umbrel_ro_bridge.openclaw_client._safe_request",
+        new_callable=AsyncMock,
+        return_value={"ok": True, "data": {"ok": True}},
+    ) as request:
+        result = await openclaw_client.container_logs("app_proxy", tail=37)
+
+    assert result["ok"] is True
+    request.assert_awaited_once_with(
+        "POST", "/v1/logs", {"container": "app_proxy", "tail": 37}
+    )
+
+
+@pytest.mark.asyncio
+async def test_resource_status_posts_empty_proxy_schema():
+    with patch(
+        "umbrel_ro_bridge.openclaw_client._safe_request",
+        new_callable=AsyncMock,
+        return_value={"ok": True, "data": {"ok": True}},
+    ) as request:
+        result = await openclaw_client.resource_status()
+
+    assert result["ok"] is True
+    request.assert_awaited_once_with("POST", "/v1/resource_status", {})

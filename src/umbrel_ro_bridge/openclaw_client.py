@@ -51,11 +51,11 @@ def _client() -> httpx.AsyncClient:
     )
 
 
-async def _safe_request(method: str, path: str) -> dict[str, Any]:
+async def _safe_request(method: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
     async with _client() as client:
         try:
             async with asyncio.timeout(15):
-                response = await client.request(method, path)
+                response = await client.request(method, path, json=payload)
                 response.raise_for_status()
                 chunks = bytearray()
                 async for chunk in response.aiter_bytes(chunk_size=8192):
@@ -80,7 +80,9 @@ async def container_status(alias: str) -> dict[str, Any]:
     container = _resolve_alias(alias)
     if container is None:
         return {"ok": False, **ERROR_CODES["container_not_found"]}
-    result = await _safe_request("GET", f"/v1/container_status/{alias}")
+    result = await _safe_request(
+        "POST", "/v1/container_status", {"container": alias}
+    )
     if not result["ok"]:
         return result
     return {"ok": True, "data": mask_secrets(json.dumps(result["data"]))}
@@ -90,14 +92,16 @@ async def container_logs(alias: str, tail: int = 100) -> dict[str, Any]:
     container = _resolve_alias(alias)
     if container is None:
         return {"ok": False, **ERROR_CODES["container_not_found"]}
-    result = await _safe_request("GET", f"/v1/container_logs/{alias}?tail={tail}")
+    result = await _safe_request(
+        "POST", "/v1/logs", {"container": alias, "tail": tail}
+    )
     if not result["ok"]:
         return result
     return {"ok": True, "data": mask_secrets(json.dumps(result["data"]))}
 
 
 async def resource_status() -> dict[str, Any]:
-    result = await _safe_request("GET", "/v1/resource_status")
+    result = await _safe_request("POST", "/v1/resource_status", {})
     if not result["ok"]:
         return result
     return {"ok": True, "data": mask_secrets(json.dumps(result["data"]))}
