@@ -1,6 +1,6 @@
 services:
   init-token:
-    image: ghcr.io/greg-built-it/umbrel-readonly-bridge:1.0.3@sha256:BRIDGE_DIGEST_PLACEHOLDER
+    image: ghcr.io/greg-built-it/umbrel-readonly-bridge:1.0.3-2@sha256:b69746d2e18c16036e5e318e4fb30eb73b721f0ee9250d426b2001337b8b80df
     user: "0:0"
     entrypoint: ["/app/scripts/init-token.sh"]
     command: []
@@ -13,7 +13,7 @@ services:
     restart: "no"
 
   app:
-    image: ghcr.io/greg-built-it/umbrel-readonly-bridge:1.0.3@sha256:BRIDGE_DIGEST_PLACEHOLDER
+    image: ghcr.io/greg-built-it/umbrel-readonly-bridge:1.0.3-2@sha256:b69746d2e18c16036e5e318e4fb30eb73b721f0ee9250d426b2001337b8b80df
     restart: unless-stopped
     user: "0:0"
     environment:
@@ -54,7 +54,7 @@ services:
       PROXY_AUTH_ADD: "false"
 
   openclaw-docker-proxy:
-    image: ghcr.io/greg-built-it/umbrel-openclaw-docker-proxy:1.0.3@sha256:PLACEHOLDER_DIGEST
+    image: ghcr.io/greg-built-it/umbrel-openclaw-docker-proxy:1.0.3-2@sha256:57750b35cd9feba429fe7f9b0d488a7af6e6f405bb35621dad5359d71b7e5d66
     restart: unless-stopped
     user: "0:0"
     network_mode: none
@@ -64,10 +64,7 @@ services:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
     volumes:
-      - type: bind
-        source: /var/run/docker.sock
-        target: /var/run/docker.sock
-        read_only: true
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "bridge_proxy_socket:/run/proxy:rw"
     read_only: true
     cap_drop:
