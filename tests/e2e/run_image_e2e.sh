@@ -20,17 +20,20 @@ BRIDGE_IMAGE="umbrel-readonly-bridge:e2e-${RUN_SUFFIX}"
 PROXY_IMAGE="openclaw-docker-proxy:e2e-${RUN_SUFFIX}"
 PROXY_CONTAINER="umbrel-ro-e2e-proxy-${RUN_SUFFIX}"
 BRIDGE_CONTAINER="umbrel-ro-e2e-bridge-${RUN_SUFFIX}"
+BRIDGE_SMOKE_CONTAINER="umbrel-ro-e2e-bridge-smoke-${RUN_SUFFIX}"
 SOCKET_VOLUME="umbrel-ro-e2e-socket-${RUN_SUFFIX}"
 DATA_VOLUME="umbrel-ro-e2e-data-${RUN_SUFFIX}"
+TOKEN_VOLUME="umbrel-ro-e2e-token-${RUN_SUFFIX}"
 GATEWAY_CONTAINER="openclaw_gateway_1"
 APP_PROXY_CONTAINER="openclaw_app_proxy_1"
 CHECK_SCRIPT="${BRIDGE_CONTEXT}/tests/e2e/image_client_check.py"
 
 cleanup() {
   docker rm -f \
-    "$BRIDGE_CONTAINER" "$PROXY_CONTAINER" \
+    "$BRIDGE_CONTAINER" "$BRIDGE_SMOKE_CONTAINER" "$PROXY_CONTAINER" \
     "$GATEWAY_CONTAINER" "$APP_PROXY_CONTAINER" >/dev/null 2>&1 || true
-  docker volume rm -f "$SOCKET_VOLUME" "$DATA_VOLUME" >/dev/null 2>&1 || true
+  docker volume rm -f \
+    "$SOCKET_VOLUME" "$DATA_VOLUME" "$TOKEN_VOLUME" >/dev/null 2>&1 || true
   echo "E2E_CLEANUP complete suffix=${RUN_SUFFIX}"
 }
 trap cleanup EXIT
@@ -46,6 +49,13 @@ docker build --tag "$BRIDGE_IMAGE" "$BRIDGE_CONTEXT"
 
 docker volume create "$SOCKET_VOLUME" >/dev/null
 docker volume create "$DATA_VOLUME" >/dev/null
+docker volume create "$TOKEN_VOLUME" >/dev/null
+docker run --rm \
+  --network none \
+  --read-only \
+  --mount "type=volume,src=${TOKEN_VOLUME},dst=/token" \
+  alpine:3.20 \
+  sh -c 'umask 077; printf "%s\n" e2e-only > /token/bridge-token'
 
 docker run --detach \
   --name "$GATEWAY_CONTAINER" \
@@ -100,6 +110,42 @@ proxy_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Sta
   exit 1
 }
 docker exec "$PROXY_CONTAINER" sh -c 'test -S /run/proxy/docker-proxy.sock'
+
+echo "E2E_BRIDGE_DEFAULT_ENTRYPOINT_START"
+docker run --detach \
+  --name "$BRIDGE_SMOKE_CONTAINER" \
+  --network none \
+  --read-only \
+  --tmpfs /tmp:noexec,nosuid,size=10m \
+  --mount "type=volume,src=${TOKEN_VOLUME},dst=/run/secrets,readonly" \
+  "$BRIDGE_IMAGE" >/dev/null
+
+bridge_ready=false
+for _ in $(seq 1 60); do
+  bridge_state="$(docker inspect --format '{{.State.Status}}' "$BRIDGE_SMOKE_CONTAINER" 2>/dev/null || true)"
+  if docker exec "$BRIDGE_SMOKE_CONTAINER" python -c \
+    'import urllib.request; assert urllib.request.urlopen("http://127.0.0.1:8080/health", timeout=2).read() == b"ok"' \
+    >/dev/null 2>&1; then
+    bridge_ready=true
+    break
+  fi
+  if [[ "$bridge_state" == "exited" || "$bridge_state" == "dead" ]]; then
+    echo "bridge default entrypoint exited before becoming ready" >&2
+    docker logs "$BRIDGE_SMOKE_CONTAINER" >&2 || true
+    exit 1
+  fi
+  sleep 1
+done
+
+[[ "$bridge_ready" == "true" ]] || {
+  echo "bridge default entrypoint did not become ready" >&2
+  docker logs "$BRIDGE_SMOKE_CONTAINER" >&2 || true
+  exit 1
+}
+docker stop --time 10 "$BRIDGE_SMOKE_CONTAINER" >/dev/null
+[[ "$(docker inspect --format '{{.State.Status}}' "$BRIDGE_SMOKE_CONTAINER")" == "exited" ]]
+docker rm "$BRIDGE_SMOKE_CONTAINER" >/dev/null
+echo "E2E_BRIDGE_DEFAULT_ENTRYPOINT=pass"
 
 docker run --detach \
   --name "$BRIDGE_CONTAINER" \
