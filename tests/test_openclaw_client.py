@@ -39,7 +39,7 @@ async def test_container_status_proxy_unavailable():
         instance = AsyncMock()
         instance.__aenter__ = AsyncMock(return_value=instance)
         instance.__aexit__ = AsyncMock(return_value=False)
-        instance.request = AsyncMock(side_effect=Exception("connect failed"))
+        instance.stream = MagicMock(side_effect=Exception("connect failed"))
         mock_client.return_value = instance
         result = await openclaw_client.container_status("gateway")
         assert result["ok"] is False
@@ -58,10 +58,12 @@ async def test_container_status_success():
 
         response = MagicMock()
         response.status_code = 200
-        response.raise_for_status = MagicMock()
         response.aiter_bytes = mock_aiter_bytes
 
-        instance.request = AsyncMock(return_value=response)
+        stream_context = MagicMock()
+        stream_context.__aenter__ = AsyncMock(return_value=response)
+        stream_context.__aexit__ = AsyncMock(return_value=False)
+        instance.stream = MagicMock(return_value=stream_context)
         mock_client.return_value = instance
         result = await openclaw_client.container_status("gateway")
         assert result["ok"] is True

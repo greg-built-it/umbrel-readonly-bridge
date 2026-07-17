@@ -92,7 +92,7 @@ async def test_messages_requires_auth(base_url):
         assert response.status_code == 401
 
 
-async def test_mcp_client_lists_13_tools(base_url):
+async def test_mcp_client_lists_25_tools(base_url):
     headers = {"Authorization": f"Bearer {TEST_TOKEN}"}
     async with sse_client(
         f"{base_url}/sse", headers=headers
@@ -101,7 +101,9 @@ async def test_mcp_client_lists_13_tools(base_url):
             await session.initialize()
             tools = await session.list_tools()
             names = [tool.name for tool in tools.tools]
-            assert len(names) == 16
+            assert len(names) == 25
             assert "list_directory" in names
             assert "read_text" in names
             assert "mount_inventory" in names
+            assert "archive_inspect" in names
+            assert "openclaw_container_inspect" in names

@@ -45,6 +45,38 @@ def _load_token() -> str:
 BRIDGE_TOKEN: str | None = None
 
 
+ARCHIVE_HARD_TIMEOUT_GRACE_SECONDS = 1.0
+STRUCTURED_PROXY_TOOLS = frozenset({
+    "openclaw_docker_info",
+    "openclaw_local_images",
+    "openclaw_image_config",
+    "openclaw_container_inspect",
+})
+
+
+def _mask_result_values(value: Any, *, key: str | None = None) -> Any:
+    """Mask only values so JSON keys and structure remain intact."""
+    if isinstance(value, dict):
+        return {
+            str(item_key): _mask_result_values(item, key=str(item_key))
+            for item_key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_mask_result_values(item) for item in value]
+    if isinstance(value, str):
+        if key == "sha256" and len(value) == 64 and all(
+            char in "0123456789abcdef" for char in value
+        ):
+            return value
+        return mask_secrets(value)
+    return value
+
+
+def _serialize_tool_result(result: Any, *, trusted_structured: bool = False) -> str:
+    safe_result = result if trusted_structured else _mask_result_values(result)
+    return json.dumps(safe_result, ensure_ascii=False, default=str)
+
+
 # ---------------------------------------------------------------------------
 # MCP-Server
 # ---------------------------------------------------------------------------
@@ -64,6 +96,11 @@ TOOLS = [
     Tool(name="read_binary_metadata", description="Liest Metadaten und MIME-Typ einer Datei.", inputSchema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}),
     Tool(name="read_binary_chunk", description="Liest ein begrenztes Byte-Chunks aus einer Datei (max. 64 KiB).", inputSchema={"type": "object", "properties": {"path": {"type": "string"}, "offset": {"type": "integer", "minimum": 0}, "length": {"type": "integer", "minimum": 1, "maximum": 65536}}, "required": ["path", "offset", "length"]}),
     Tool(name="archive_list", description="Listet den Inhalt eines ZIP/TAR-Archivs auf.", inputSchema={"type": "object", "properties": {"path": {"type": "string"}, "max_entries": {"type": "integer", "maximum": 1000}}, "required": ["path"]}),
+    Tool(name="filesystem_capacity", description="Ermittelt Kapazität, freien/belegten Speicher, Inodes und Dateisystemtyp eines erlaubten Pfads.", inputSchema={"type": "object", "additionalProperties": False, "properties": {"path": {"type": "string"}}, "required": ["path"]}),
+    Tool(name="tree_inventory", description="Inventarisiert einen Verzeichnisbaum begrenzt, ohne Symlinks zu folgen oder Inhalte zu lesen.", inputSchema={"type": "object", "additionalProperties": False, "properties": {"path": {"type": "string"}, "max_files": {"type": "integer", "minimum": 1, "maximum": 100000}, "top_n": {"type": "integer", "minimum": 1, "maximum": 100}, "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 120}}, "required": ["path"]}),
+    Tool(name="archive_inspect", description="Prüft ZIP/TAR-Archive, Hash, Integrität und gefährliche Header ohne Extraktion.", inputSchema={"type": "object", "additionalProperties": False, "properties": {"path": {"type": "string"}, "max_entries": {"type": "integer", "minimum": 1, "maximum": 10000}, "top_n": {"type": "integer", "minimum": 1, "maximum": 100}, "validate": {"type": "boolean"}, "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 120}}, "required": ["path"]}),
+    Tool(name="resolve_path_info", description="Löst einen erlaubten Pfad sicher auf und meldet Symlink-, Mount- und Dateisysteminformationen.", inputSchema={"type": "object", "additionalProperties": False, "properties": {"path": {"type": "string"}}, "required": ["path"]}),
+    Tool(name="check_path_overlap", description="Prüft zwei erlaubte Pfade auf kanonische Überlappung und gemeinsames Dateisystem.", inputSchema={"type": "object", "additionalProperties": False, "properties": {"path_a": {"type": "string"}, "path_b": {"type": "string"}}, "required": ["path_a", "path_b"]}),
     Tool(name="sqlite_query", description="Fuehrt eine read-only SQLite-Abfrage aus.", inputSchema={"type": "object", "properties": {"path": {"type": "string"}, "query": {"type": "string"}, "max_rows": {"type": "integer", "maximum": 1000}}, "required": ["path", "query"]}),
     Tool(name="extract_pdf_text", description="Extrahiert Text aus einer PDF-Datei (max. 50 Seiten).", inputSchema={"type": "object", "properties": {"path": {"type": "string"}, "max_pages": {"type": "integer", "maximum": 50}}, "required": ["path"]}),
     Tool(name="sha256", description="Berechnet SHA-256 einer Datei.", inputSchema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}),
@@ -72,6 +109,10 @@ TOOLS = [
     Tool(name="mount_inventory", description="Listet Mounts unter /host/umbrel auf.", inputSchema={"type": "object", "properties": {}}),
     Tool(name="du", description="Ermittelt Groessen von Verzeichnissen.", inputSchema={"type": "object", "properties": {"path": {"type": "string"}, "maxdepth": {"type": "integer", "maximum": 5}}, "required": ["path"]}),
     Tool(name="file_type", description="Gibt Dateityp/Statistik zurueck.", inputSchema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}),
+    Tool(name="openclaw_docker_info", description="Docker-Host-Fakten: Architektur, Storage-Driver, Docker-Root-Dir, Image- und Container-Anzahl.", inputSchema={"type": "object", "additionalProperties": False, "properties": {}}),
+    Tool(name="openclaw_local_images", description="Lokale OpenClaw-Images mit ID, Tags, Digests, Größe und Erstellungszeit. Fremde Images werden ausgefiltert.", inputSchema={"type": "object", "additionalProperties": False, "properties": {}}),
+    Tool(name="openclaw_image_config", description="Sichere Image-Konfiguration: User, WorkingDir, Entrypoint, Cmd, Env-Schlüsselanzahl und Schlüsselliste (niemals Werte).", inputSchema={"type": "object", "additionalProperties": False, "properties": {"image": {"type": "string"}}, "required": ["image"]}),
+    Tool(name="openclaw_container_inspect", description="Gefilterter Container-Inspect (Mounts, HostConfig, Config-Keys, Netzwerk) nur für gateway und app_proxy. Keine Env-Werte.", inputSchema={"type": "object", "additionalProperties": False, "properties": {"container": {"type": "string", "enum": ["gateway", "app_proxy"]}}, "required": ["container"]}),
     Tool(name="openclaw_container_status", description="Zeigt Status eines OpenClaw-Containers (gateway oder app_proxy).", inputSchema={"type": "object", "properties": {"container": {"type": "string", "enum": ["gateway", "app_proxy"]}}, "required": ["container"]}),
     Tool(name="openclaw_container_logs", description="Zeigt die letzten Zeilen eines OpenClaw-Containers (gateway oder app_proxy).", inputSchema={"type": "object", "properties": {"container": {"type": "string", "enum": ["gateway", "app_proxy"]}, "tail": {"type": "integer", "minimum": 1, "maximum": 500}}, "required": ["container"]}),
     Tool(name="openclaw_resource_status", description="Zeigt Ressourcenstatus beider OpenClaw-Container.", inputSchema={"type": "object", "properties": {}}),
@@ -93,6 +134,42 @@ async def call_tool(name: str, arguments: Any) -> list:
             result = fs.read_binary_chunk(path, arguments.get("offset", 0), arguments.get("length", 4096))
         elif name == "archive_list":
             result = fs.archive_list(path, max_entries=arguments.get("max_entries", fs.MAX_ARCHIVE_ENTRIES))
+        elif name == "filesystem_capacity":
+            result = fs.filesystem_capacity(path)
+        elif name == "tree_inventory":
+            result = fs.tree_inventory(
+                path,
+                max_files=arguments.get("max_files", 100000),
+                top_n=arguments.get("top_n", 20),
+                timeout_seconds=arguments.get("timeout_seconds", 120),
+            )
+        elif name == "archive_inspect":
+            timeout_seconds = arguments.get("timeout_seconds", 120)
+            try:
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        fs.archive_inspect,
+                        path,
+                        max_entries=arguments.get("max_entries", 10000),
+                        top_n=arguments.get("top_n", 20),
+                        validate=arguments.get("validate", True),
+                        timeout_seconds=timeout_seconds,
+                    ),
+                    timeout=max(
+                        0.01,
+                        timeout_seconds + ARCHIVE_HARD_TIMEOUT_GRACE_SECONDS,
+                    ),
+                )
+            except asyncio.TimeoutError as error:
+                raise TimeoutError(
+                    "Archivprüfung hat das harte Zeitlimit überschritten"
+                ) from error
+        elif name == "resolve_path_info":
+            result = fs.resolve_path_info(path)
+        elif name == "check_path_overlap":
+            _token_path_guard(arguments.get("path_a", ""))
+            _token_path_guard(arguments.get("path_b", ""))
+            result = fs.check_path_overlap(arguments["path_a"], arguments["path_b"])
         elif name == "sqlite_query":
             result = fs.sqlite_query(path, arguments["query"], max_rows=arguments.get("max_rows", fs.MAX_SQLITE_ROWS))
         elif name == "extract_pdf_text":
@@ -109,6 +186,14 @@ async def call_tool(name: str, arguments: Any) -> list:
             result = fs.du(path, maxdepth=arguments.get("maxdepth", 2))
         elif name == "file_type":
             result = fs.file_type(path)
+        elif name == "openclaw_docker_info":
+            result = await openclaw_client.docker_info()
+        elif name == "openclaw_local_images":
+            result = await openclaw_client.local_images()
+        elif name == "openclaw_image_config":
+            result = await openclaw_client.image_config(arguments["image"])
+        elif name == "openclaw_container_inspect":
+            result = await openclaw_client.container_inspect(arguments["container"])
         elif name == "openclaw_container_status":
             result = await openclaw_client.container_status(arguments["container"])
         elif name == "openclaw_container_logs":
@@ -120,8 +205,10 @@ async def call_tool(name: str, arguments: Any) -> list:
             result = await openclaw_client.resource_status()
         else:
             raise ValueError(f"Unbekanntes Werkzeug: {name}")
-        text = json.dumps(result, ensure_ascii=False, default=str)
-        text = mask_secrets(text)
+        text = _serialize_tool_result(
+            result,
+            trusted_structured=name in STRUCTURED_PROXY_TOOLS,
+        )
         return [TextContent(type="text", text=text)]
     except Exception as e:
         return [TextContent(type="text", text=json.dumps({"error": str(e)}))]

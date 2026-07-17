@@ -554,3 +554,44 @@ def mount_inventory() -> dict[str, Any]:
     except Exception:
         pass
     return {"mounts": mounts}
+
+
+# Die Implementierung liegt getrennt, damit die risikoreicheren Preflight-
+# Operationen klar von den älteren Lesewerkzeugen abgegrenzt bleiben.
+from . import preflight as _preflight  # noqa: E402
+
+
+def _translate_preflight(callable_, *args, **kwargs):
+    try:
+        return callable_(*args, **kwargs)
+    except _preflight.PreflightError as error:
+        raise FilesystemError(str(error)) from error
+
+
+def filesystem_capacity(path: str) -> dict[str, Any]:
+    return _translate_preflight(_preflight.filesystem_capacity, path)
+
+
+def tree_inventory(path: str, max_files: int = _preflight.MAX_TREE_FILES,
+                   top_n: int = 20, timeout_seconds: int = _preflight.MAX_TREE_TIMEOUT_SECONDS) -> dict[str, Any]:
+    return _translate_preflight(
+        _preflight.tree_inventory, path, max_files=max_files, top_n=top_n,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def archive_inspect(path: str, max_entries: int = _preflight.MAX_ARCHIVE_ENTRIES,
+                    top_n: int = 20, validate: bool = True,
+                    timeout_seconds: int = _preflight.MAX_ARCHIVE_TIMEOUT_SECONDS) -> dict[str, Any]:
+    return _translate_preflight(
+        _preflight.archive_inspect, path, max_entries=max_entries,
+        top_n=top_n, validate=validate, timeout_seconds=timeout_seconds,
+    )
+
+
+def resolve_path_info(path: str) -> dict[str, Any]:
+    return _translate_preflight(_preflight.resolve_path_info, path)
+
+
+def check_path_overlap(path_a: str, path_b: str) -> dict[str, Any]:
+    return _translate_preflight(_preflight.check_path_overlap, path_a, path_b)
