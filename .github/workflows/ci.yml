@@ -43,11 +43,11 @@ jobs:
         with:
           path: bridge
 
-      - name: Checkout Proxy 1.0.4 source
+      - name: Checkout Proxy 1.0.6 source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: greg-built-it/umbrel-openclaw-docker-proxy
-          ref: aaac626505731d2ebbac2feee5af202c773e0ced
+          ref: cb61f80d913a4e556abe2b7d2451bdb1cc07d19c
           path: proxy
 
       - name: Build images and run Docker E2E

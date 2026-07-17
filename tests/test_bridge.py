@@ -13,7 +13,7 @@ from umbrel_ro_bridge import policy, fs
 
 
 def test_version_is_expected():
-    assert __version__ == "1.0.5"
+    assert __version__ == "1.0.6"
 
 
 def test_health_endpoint_is_anonymous():
