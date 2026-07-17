@@ -1,6 +1,6 @@
 services:
   init-token:
-    image: ghcr.io/greg-built-it/umbrel-readonly-bridge:1.0.4@sha256:12f5d428e49d5a542c85d95b9a422bb461a4f97b73458ddfe6e92d7f73bcff8b
+    image: ghcr.io/greg-built-it/umbrel-readonly-bridge:1.0.5@sha256:cf326747efbdc2938f79b06b1447de77e2c0a41fa13c560c0ff8079e9c16bb00
     user: "0:0"
     entrypoint: ["/app/scripts/init-token.sh"]
     command: []
@@ -13,7 +13,7 @@ services:
     restart: "no"
 
   app:
-    image: ghcr.io/greg-built-it/umbrel-readonly-bridge:1.0.4@sha256:12f5d428e49d5a542c85d95b9a422bb461a4f97b73458ddfe6e92d7f73bcff8b
+    image: ghcr.io/greg-built-it/umbrel-readonly-bridge:1.0.5@sha256:cf326747efbdc2938f79b06b1447de77e2c0a41fa13c560c0ff8079e9c16bb00
     restart: unless-stopped
     user: "0:0"
     environment:
@@ -54,7 +54,7 @@ services:
       PROXY_AUTH_ADD: "false"
 
   openclaw-docker-proxy:
-    image: ghcr.io/greg-built-it/umbrel-openclaw-docker-proxy:1.0.4@sha256:fc3d860a6291116995a77e0d21286e460751b70b6f5d6b9ea0da34a4c9c83e0d
+    image: ghcr.io/greg-built-it/umbrel-openclaw-docker-proxy:1.0.5@sha256:d08ff76fc5d3daa32d4dd875b13e52defedcefe67e6dc6731103b500c41491b5
     restart: unless-stopped
     user: "0:0"
     network_mode: none

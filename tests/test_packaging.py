@@ -9,7 +9,7 @@ ROOT = Path(__file__).parent.parent
 def test_manifest_version_and_gallery():
     manifest = yaml.safe_load((ROOT / "umbrel-app.yml").read_text())
 
-    assert manifest["version"] == "1.0.4"
+    assert manifest["version"] == "1.0.5"
     assert manifest.get("gallery") == [], "gallery muss eine leere Liste sein"
 
 
@@ -33,12 +33,12 @@ def test_packaging_has_no_placeholders_and_keeps_pinned_images():
 
     compose = yaml.safe_load(compose_text)
     bridge = (
-        "ghcr.io/greg-built-it/umbrel-readonly-bridge:1.0.4@sha256:"
-        "12f5d428e49d5a542c85d95b9a422bb461a4f97b73458ddfe6e92d7f73bcff8b"
+        "ghcr.io/greg-built-it/umbrel-readonly-bridge:1.0.5@sha256:"
+        "cf326747efbdc2938f79b06b1447de77e2c0a41fa13c560c0ff8079e9c16bb00"
     )
     proxy = (
-        "ghcr.io/greg-built-it/umbrel-openclaw-docker-proxy:1.0.4@sha256:"
-        "fc3d860a6291116995a77e0d21286e460751b70b6f5d6b9ea0da34a4c9c83e0d"
+        "ghcr.io/greg-built-it/umbrel-openclaw-docker-proxy:1.0.5@sha256:"
+        "d08ff76fc5d3daa32d4dd875b13e52defedcefe67e6dc6731103b500c41491b5"
     )
     assert compose["services"]["init-token"]["image"] == bridge
     assert compose["services"]["app"]["image"] == bridge

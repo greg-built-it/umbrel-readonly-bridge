@@ -4,7 +4,7 @@ name: "Umbrel Read-Only Bridge"
 tagline: "Read-only MCP filesystem bridge for Umbrel"
 icon: "https://raw.githubusercontent.com/greg-built-it/greg-umbrel-app-store/main/greg-umbrel-readonly-bridge/icon.svg"
 category: "developer tools"
-version: "1.0.4"
+version: "1.0.5"
 port: 8080
 path: "/health"
 description: >-
@@ -27,7 +27,7 @@ submitter: Greg
 submissionNotes: "Private community app for Hermes read-only access."
 
 releaseNotes: |-
-  Version 1.0.4: Complete the OpenClaw diagnostics integration.
-  - Fixes the Docker proxy package entrypoint and executable POST routes.
-  - Aligns Bridge requests with the Proxy JSON schemas.
-  - Adds a real image-level E2E release gate with regression controls.
+  Version 1.0.5: Add bounded OpenClaw preflight diagnostics.
+  - Adds read-only tree inventory and safe archive inspection without extraction.
+  - Adds bounded Docker image, configuration and container diagnostics.
+  - Enforces streaming size limits, structured errors and shared time budgets.
